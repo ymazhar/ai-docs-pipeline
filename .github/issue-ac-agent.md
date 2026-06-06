@@ -54,6 +54,10 @@ gh workflow run issue-ac-agent.yml -f issue_number=12
 
 - **Idempotency** — `ac-bot-processed` prevents duplicate comments.
 - **Loop prevention** — issues opened by bots are skipped at the job level.
+- **Public-repo abuse guard** — auto-run is restricted to issues opened by the
+  owner / members / collaborators (`author_association`). Strangers cannot trigger
+  the agent (no credit burn, no prompt injection). To process a trusted external
+  issue, run it manually via `workflow_dispatch` (requires write access).
 - **No fabrication** — underspecified issues get clarifying questions, not invented AC.
 - **Least privilege** — the agent may only read the repo and use a small set of
   `gh issue` commands; it cannot push code or open PRs.
