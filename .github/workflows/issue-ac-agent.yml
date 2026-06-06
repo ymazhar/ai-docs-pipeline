@@ -50,7 +50,7 @@ jobs:
       ISSUE_NUMBER: ${{ github.event.issue.number || inputs.issue_number }}
     steps:
       - name: Checkout (for vendored skill + repo context)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Draft acceptance criteria
         uses: anthropics/claude-code-action@v1
