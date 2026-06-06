@@ -1,0 +1,17 @@
+# GitHub Pages (Jekyll) config — renders README.md as the site homepage.
+title: "ai-docs-pipeline — audio to AI documentation"
+description: "Local-first pipeline: convert audio recordings into AI-ready Markdown docs with whisper.cpp + Claude."
+theme: jekyll-theme-cayman
+
+# Keep the Pages build fast and clean: don't process the tooling/submodule.
+exclude:
+  - whisper.cpp
+  - .venv
+  - __pycache__
+  - audio
+  - transcript
+  - analysis
+  - docs
+  - transcribe.py
+  - pipeline.py
+  - requirements.txt
