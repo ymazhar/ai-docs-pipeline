@@ -33,10 +33,16 @@ permissions:
 
 jobs:
   draft-acceptance-criteria:
-    # Skip issues opened by bots to avoid feedback loops; dispatch always runs.
+    # Public-repo guard: auto-run only for issues opened by the repo owner /
+    # members / collaborators (untrusted strangers can't trigger the agent and
+    # burn API credits or attempt prompt injection). Skip bots to avoid loops.
+    # Manual workflow_dispatch (requires write access) always runs — use it to
+    # process a trusted external issue on demand.
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      github.event.issue.user.type != 'Bot'
+      (github.event.issue.user.type != 'Bot' &&
+       contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'),
+                github.event.issue.author_association))
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
