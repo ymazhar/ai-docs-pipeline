@@ -35,7 +35,10 @@ python3 -m venv .venv
 ./.venv/bin/pip install -r requirements.txt
 cp .env.local.example .env.local      # then add your ANTHROPIC_API_KEY
 
-# 4. Run the full pipeline
+# 4. Create the pipeline folders, then drop audio into audio/<category>/
+./.venv/bin/python pipeline.py --init   # creates audio/ transcript/ analysis/ docs/
+
+# 5. Run the full pipeline
 ./.venv/bin/python pipeline.py audio/
 ```
 

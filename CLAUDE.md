@@ -88,7 +88,22 @@ cp .env.local.example .env.local      # then put the key into .env.local
 both are in `.gitignore`. Alternatively — `export ANTHROPIC_API_KEY=...` (a real
 environment variable takes precedence over the file).
 
+**5. Create the pipeline folders:**
+```bash
+./.venv/bin/python pipeline.py --init      # creates audio/ transcript/ analysis/ docs/
+```
+`--init` scaffolds the base folders and exits. It is idempotent — existing folders
+are left untouched. Any normal pipeline run also ensures these folders exist, so
+this step is optional convenience: run it to drop audio in before the first run.
+Inside `audio/`, create a category subfolder per topic (e.g. `audio/architecture/`)
+and place your audio there.
+
 ## Usage
+
+**Scaffold the folders (optional, idempotent):**
+```bash
+./.venv/bin/python pipeline.py --init                 # create audio/ transcript/ analysis/ docs/
+```
 
 **Full pipeline (audio → transcript → analysis → docs):**
 ```bash

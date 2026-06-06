@@ -49,6 +49,10 @@ ROOT = Path(__file__).parent
 ANALYSIS_DIR = ROOT / "analysis"
 DOCS_DIR = ROOT / "docs"
 
+# Base directories the pipeline reads from / writes to. AUDIO_DIR and
+# TRANSCRIPT_DIR come from transcribe.py; the other two are defined above.
+BASE_DIRS = [AUDIO_DIR, TRANSCRIPT_DIR, ANALYSIS_DIR, DOCS_DIR]
+
 # Speed/cost balance; adaptive thinking + high effort for quality.
 CLAUDE_MODEL = "claude-sonnet-4-6"
 
@@ -71,6 +75,16 @@ def load_env_file() -> None:
             key, _, value = line.partition("=")
             key, value = key.strip(), value.strip().strip("'\"")
             os.environ.setdefault(key, value)
+
+def ensure_base_dirs() -> list[Path]:
+    """Create the pipeline's base folders if missing; return the ones created."""
+    created: list[Path] = []
+    for d in BASE_DIRS:
+        if not d.exists():
+            d.mkdir(parents=True, exist_ok=True)
+            created.append(d)
+    return created
+
 
 ANALYSIS_SYSTEM = """\
 You are an expert analyst. The user message is a raw transcript of a spoken talk \
@@ -295,6 +309,9 @@ def main() -> None:
     )
     parser.add_argument("input", nargs="*",
                         help="Файли/папки для початкового етапу (за замовч. — папка етапу)")
+    parser.add_argument("--init", action="store_true",
+                        help="Створити базові теки конвеєра (audio/ transcript/ "
+                             "analysis/ docs/) і вийти")
     parser.add_argument("--from", dest="start", choices=STAGES, default="transcribe",
                         help="З якого етапу починати (default: transcribe)")
     parser.add_argument("--to", dest="stop", choices=STAGES, default="docs",
@@ -306,6 +323,19 @@ def main() -> None:
     parser.add_argument("-l", "--language", default=None,
                         help="Мова аудіо для whisper (uk, ru, en…); авто якщо не вказано")
     args = parser.parse_args()
+
+    if args.init:
+        created = ensure_base_dirs()
+        if created:
+            for d in created:
+                print(f"📁 Створено: {d.relative_to(ROOT)}/")
+        else:
+            print("Усі базові теки вже існують.")
+        return
+
+    # Make sure the base folders exist so the pipeline never trips over a
+    # missing audio/, transcript/, analysis/ or docs/ on a fresh checkout.
+    ensure_base_dirs()
 
     start_i, stop_i = STAGES.index(args.start), STAGES.index(args.stop)
     if start_i > stop_i:
