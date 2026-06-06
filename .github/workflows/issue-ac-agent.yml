@@ -1,0 +1,121 @@
+name: Issue AC Agent
+
+# Autonomous triage agent.
+# When a new issue is opened it: reviews the issue, finds bottlenecks /
+# edge cases / criticality, drafts Acceptance Criteria using the
+# acceptance-criteria methodology, posts them as a comment and tags the
+# issue `needs-ac-review` for a human to approve.
+#
+# Setup once:  gh secret set ANTHROPIC_API_KEY --body "sk-ant-..."
+# Manual run:  Actions tab -> Issue AC Agent -> Run workflow -> issue number
+#              (or:  gh workflow run issue-ac-agent.yml -f issue_number=12 )
+
+on:
+  issues:
+    types: [opened]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: "Issue number to (re)process"
+        required: true
+        type: string
+
+# Cancel a superseded run for the same issue (e.g. quick reopen/dispatch).
+concurrency:
+  group: ac-agent-${{ github.event.issue.number || inputs.issue_number }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+  id-token: write
+
+jobs:
+  draft-acceptance-criteria:
+    # Skip issues opened by bots to avoid feedback loops; dispatch always runs.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.issue.user.type != 'Bot'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      ISSUE_NUMBER: ${{ github.event.issue.number || inputs.issue_number }}
+    steps:
+      - name: Checkout (for vendored skill + repo context)
+        uses: actions/checkout@v4
+
+      - name: Draft acceptance criteria
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ github.token }}
+          claude_args: |
+            --model claude-sonnet-4-6
+            --max-turns 20
+            --allowedTools "Read,Glob,Grep,Write,Bash(gh issue view:*),Bash(gh issue comment:*),Bash(gh issue edit:*),Bash(gh label list:*),Bash(gh search issues:*)"
+          prompt: |
+            You are an autonomous issue-triage agent for the GitHub repository
+            ${{ github.repository }}. Issue #${{ env.ISSUE_NUMBER }} needs acceptance criteria.
+
+            The `gh` CLI is already authenticated (GH_TOKEN is set). Work strictly
+            on issue #${{ env.ISSUE_NUMBER }} only.
+
+            ## Step 0 — Guards (stop early if any apply)
+            1. Run: gh issue view ${{ env.ISSUE_NUMBER }} --json number,title,body,author,labels,state,comments
+            2. If state is not "open" -> STOP, do nothing.
+            3. If labels already include "ac-bot-processed" -> STOP (idempotency; never comment twice).
+            4. If the author login ends with "[bot]" or is "github-actions" -> STOP.
+
+            ## Step 1 — Ground yourself in the codebase
+            Read CLAUDE.md and use Glob/Grep/Read to inspect the parts of the repo
+            the issue touches (e.g. transcribe.py, pipeline.py). Base your analysis
+            on what the code actually does, not assumptions.
+
+            ## Step 2 — Apply the methodology
+            Read .claude/skills/acceptance-criteria/SKILL.md and follow it exactly.
+            Choose Checklist for simple tasks, Given/When/Then for non-trivial behavior.
+
+            ## Step 3 — Analyze
+            Determine:
+            - Bottlenecks / risks (perf, external deps, blocking work).
+            - Edge cases (empty input, large files, non-WAV, missing API key, partial failures, etc.).
+            - Criticality: impact x urgency, one line.
+            - Open questions / ambiguities.
+
+            ## Step 4 — Decide
+            - If the issue is too underspecified to write meaningful AC (no clear
+              desired behavior or success condition): DO NOT invent AC. Instead post
+              a comment listing specific clarifying questions, then run:
+                gh issue edit ${{ env.ISSUE_NUMBER }} --add-label "needs-info" --add-label "ac-bot-processed"
+              and STOP.
+            - Otherwise write the AC per the methodology: preconditions/scope,
+              dependencies, error classification (hard vs soft), prohibitions
+              (negative criteria), and reference CLAUDE.md / existing docs instead
+              of duplicating them.
+
+            ## Step 5 — Post ONE comment
+            Write the comment body to a file, then post it:
+              Write the body to /tmp/ac.md
+              gh issue comment ${{ env.ISSUE_NUMBER }} --body-file /tmp/ac.md
+
+            Comment structure (Markdown, exactly these sections):
+              ## 🤖 AC draft — needs human review
+              ### Summary
+              ### Bottlenecks & risks
+              ### Edge cases
+              ### Criticality
+              ### Open questions
+              ### Acceptance Criteria
+              <the AC, in a fenced block if scenario-based>
+
+              ---
+              _Generated automatically by the Issue AC Agent. Review & edit, move the
+              approved AC into the issue body, then remove the `needs-ac-review` label._
+
+            ## Step 6 — Label
+            gh issue edit ${{ env.ISSUE_NUMBER }} --add-label "needs-ac-review" --add-label "ac-bot-processed"
+
+            Constraints: comment in ENGLISH. Do NOT open pull requests. Do NOT create
+            new issues. Do NOT modify the issue body. Be concrete and concise.
