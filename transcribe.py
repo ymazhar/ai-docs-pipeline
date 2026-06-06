@@ -100,20 +100,20 @@ def collect_audio_files(paths: list[str]) -> list[Path]:
         elif path.suffix.lower() in AUDIO_EXTENSIONS:
             files.append(path)
         else:
-            print(f"Пропускаю (непідтримуваний формат): {path}")
+            print(f"Skipping (unsupported format): {path}")
     return files
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Транскрибує аудіо у текстові файли")
-    parser.add_argument("input", nargs="+", help="Аудіофайл(и) або папка з аудіо")
-    parser.add_argument("-m", "--model", default="medium", help="Модель whisper (base, small, medium, large)")
-    parser.add_argument("-l", "--language", default=None, help="Мова (uk, en тощо). Авто-визначення якщо не вказано")
+    parser = argparse.ArgumentParser(description="Transcribe audio into text files")
+    parser.add_argument("input", nargs="+", help="Audio file(s) or a folder of audio")
+    parser.add_argument("-m", "--model", default="medium", help="Whisper model (base, small, medium, large)")
+    parser.add_argument("-l", "--language", default=None, help="Language (uk, en, etc.); auto-detected if omitted")
     args = parser.parse_args()
 
     if not WHISPER_BIN.exists():
         sys.exit(
-            "whisper-cli не знайдено. Зберіть проект:\n"
+            "whisper-cli not found. Build the project:\n"
             "  cd whisper.cpp && cmake -B build && cmake --build build -j --config Release"
         )
 
@@ -121,10 +121,10 @@ def main():
     files = collect_audio_files(args.input)
 
     if not files:
-        sys.exit("Не знайдено аудіофайлів.")
+        sys.exit("No audio files found.")
 
     for audio in files:
-        print(f"Транскрибую: {audio.name} ...", end=" ", flush=True)
+        print(f"Transcribing: {audio.name} ...", end=" ", flush=True)
         wav = convert_to_wav(audio)
         text = transcribe(wav, model, args.language)
         if wav != audio:
@@ -132,7 +132,7 @@ def main():
         out = save_transcript(audio, text)
         print(f"→ {out.relative_to(Path.cwd())}")
 
-    print(f"\nГотово. Транскрипцій збережено: {len(files)}")
+    print(f"\nDone. Transcripts saved: {len(files)}")
 
 
 if __name__ == "__main__":

@@ -29,8 +29,8 @@ try:
     import anthropic
 except ImportError:
     sys.exit(
-        "Пакет 'anthropic' не встановлено. Встановіть:\n"
-        "  pip install -r requirements.txt   (або: pip install anthropic)"
+        "The 'anthropic' package is not installed. Install it:\n"
+        "  pip install -r requirements.txt   (or: pip install anthropic)"
     )
 
 from transcribe import (
@@ -151,19 +151,19 @@ def collect_files(paths: list[str], default_dir: Path, exts: set[str]) -> list[P
     for path in roots:
         if not path.exists():
             sys.exit(
-                f"Не знайдено: {path}\n"
-                f"Підказка: файли лежать у підпапках-категоріях, напр. "
-                f"{default_dir.name}/<категорія>/<файл>."
+                f"Not found: {path}\n"
+                f"Hint: files live in category subfolders, e.g. "
+                f"{default_dir.name}/<category>/<file>."
             )
         if path.is_dir():
             matched = sorted(f for f in path.rglob("*") if f.suffix.lower() in exts)
             if not matched:
-                print(f"Порожньо (немає підтримуваних файлів): {path}")
+                print(f"Empty (no supported files): {path}")
             files.extend(matched)
         elif path.suffix.lower() in exts:
             files.append(path)
         else:
-            print(f"Пропускаю (непідтримуваний формат): {path}")
+            print(f"Skipping (unsupported format): {path}")
     return files
 
 
@@ -188,13 +188,13 @@ def stage_transcribe(inputs: list[str], whisper_model: str, language: str | None
                      force: bool) -> list[Path]:
     if not WHISPER_BIN.exists():
         sys.exit(
-            "whisper-cli не знайдено. Зберіть проект:\n"
+            "whisper-cli not found. Build the project:\n"
             "  cd whisper.cpp && cmake -B build && cmake --build build -j --config Release"
         )
     model = find_model(whisper_model)
     audio_files = collect_files(inputs, AUDIO_DIR, AUDIO_EXTENSIONS)
     if not audio_files:
-        sys.exit("Не знайдено аудіофайлів.")
+        sys.exit("No audio files found.")
 
     outputs: list[Path] = []
     for audio in audio_files:
@@ -202,10 +202,10 @@ def stage_transcribe(inputs: list[str], whisper_model: str, language: str | None
         # Naming convention: snake_case, no date in filename (save_transcript matches).
         out = out.with_name(f"{slugify(audio.stem)}.txt")
         if not force and out.exists():
-            print(f"⏭  Транскрипт існує: {out.relative_to(ROOT)}")
+            print(f"⏭  Transcript exists: {out.relative_to(ROOT)}")
             outputs.append(out)
             continue
-        print(f"🎙  Транскрибую: {audio.name} ...", end=" ", flush=True)
+        print(f"🎙  Transcribing: {audio.name} ...", end=" ", flush=True)
         wav = convert_to_wav(audio)
         text = transcribe(wav, model, language)
         if wav != audio:
@@ -225,10 +225,10 @@ def stage_analyze(client: "anthropic.Anthropic", transcripts: list[Path],
     for tpath in transcripts:
         out = mirror_path(tpath, TRANSCRIPT_DIR, ANALYSIS_DIR, ".md")
         if out.exists() and not force:
-            print(f"⏭  Аналіз існує: {out.relative_to(ROOT)}")
+            print(f"⏭  Analysis exists: {out.relative_to(ROOT)}")
             outputs.append(out)
             continue
-        print(f"🧠  Аналізую: {tpath.name} ...", end=" ", flush=True)
+        print(f"🧠  Analyzing: {tpath.name} ...", end=" ", flush=True)
         text = tpath.read_text(encoding="utf-8")
         analysis = call_claude(client, ANALYSIS_SYSTEM, text)
         analysis = with_date_header(analysis, extract_date(text))
@@ -248,10 +248,10 @@ def stage_docs(client: "anthropic.Anthropic", analyses: list[Path],
     for apath in analyses:
         out = mirror_path(apath, ANALYSIS_DIR, DOCS_DIR, ".md")
         if out.exists() and not force:
-            print(f"⏭  Док існує: {out.relative_to(ROOT)}")
+            print(f"⏭  Doc exists: {out.relative_to(ROOT)}")
             outputs.append(out)
             continue
-        print(f"📄  Генерую док: {apath.name} ...", end=" ", flush=True)
+        print(f"📄  Generating doc: {apath.name} ...", end=" ", flush=True)
         text = apath.read_text(encoding="utf-8")
         doc = call_claude(client, DOCS_SYSTEM, text)
         doc = with_date_header(doc, extract_date(text))
@@ -304,33 +304,33 @@ def build_docs_index() -> Path:
 def main() -> None:
     load_env_file()
     parser = argparse.ArgumentParser(
-        description="Конвеєр: аудіо → транскрипт → аналіз → AI-документація",
+        description="Pipeline: audio → transcript → analysis → AI documentation",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("input", nargs="*",
-                        help="Файли/папки для початкового етапу (за замовч. — папка етапу)")
+                        help="Files/folders for the starting stage (default: the stage's folder)")
     parser.add_argument("--init", action="store_true",
-                        help="Створити базові теки конвеєра (audio/ transcript/ "
-                             "analysis/ docs/) і вийти")
+                        help="Create the pipeline's base folders (audio/ transcript/ "
+                             "analysis/ docs/) and exit")
     parser.add_argument("--from", dest="start", choices=STAGES, default="transcribe",
-                        help="З якого етапу починати (default: transcribe)")
+                        help="Stage to start from (default: transcribe)")
     parser.add_argument("--to", dest="stop", choices=STAGES, default="docs",
-                        help="На якому етапі зупинитись (default: docs)")
+                        help="Stage to stop at (default: docs)")
     parser.add_argument("--force", action="store_true",
-                        help="Перегенерувати навіть якщо вихідний файл уже існує")
+                        help="Regenerate even if the output file already exists")
     parser.add_argument("-m", "--model", default="medium",
-                        help="Модель whisper (base, small, medium, large)")
+                        help="Whisper model (base, small, medium, large)")
     parser.add_argument("-l", "--language", default=None,
-                        help="Мова аудіо для whisper (uk, ru, en…); авто якщо не вказано")
+                        help="Audio language for whisper (uk, ru, en…); auto if omitted")
     args = parser.parse_args()
 
     if args.init:
         created = ensure_base_dirs()
         if created:
             for d in created:
-                print(f"📁 Створено: {d.relative_to(ROOT)}/")
+                print(f"📁 Created: {d.relative_to(ROOT)}/")
         else:
-            print("Усі базові теки вже існують.")
+            print("All base folders already exist.")
         return
 
     # Make sure the base folders exist so the pipeline never trips over a
@@ -339,14 +339,14 @@ def main() -> None:
 
     start_i, stop_i = STAGES.index(args.start), STAGES.index(args.stop)
     if start_i > stop_i:
-        sys.exit(f"--from {args.start} йде після --to {args.stop}")
+        sys.exit(f"--from {args.start} comes after --to {args.stop}")
 
     needs_claude = stop_i >= STAGES.index("analyze")
     client = None
     if needs_claude:
         if not (os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN")):
             sys.exit(
-                "Не задано ANTHROPIC_API_KEY. Встановіть ключ перед запуском, напр.:\n"
+                "ANTHROPIC_API_KEY is not set. Set the key before running, e.g.:\n"
                 "  export ANTHROPIC_API_KEY=sk-ant-..."
             )
         client = anthropic.Anthropic()
@@ -372,9 +372,9 @@ def main() -> None:
 
     if DOCS_DIR.exists():
         index = build_docs_index()
-        print(f"🗂  Індекс оновлено: {index.relative_to(ROOT)}")
+        print(f"🗂  Index updated: {index.relative_to(ROOT)}")
 
-    print("\n✅ Готово.")
+    print("\n✅ Done.")
 
 
 if __name__ == "__main__":
