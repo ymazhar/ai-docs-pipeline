@@ -117,6 +117,24 @@ Only for the analysis and docs stages. You can run transcription alone with
 It's built and tested on macOS/Linux. whisper.cpp itself supports Windows, but the
 helper scripts assume a Unix shell.
 
+## Roadmap
+
+Planned scope for upcoming releases, tracked in
+[GitHub issues](https://github.com/ymazhar/ai-docs-pipeline/issues):
+
+- **Pluggable LLM providers** ([#2](https://github.com/ymazhar/ai-docs-pipeline/issues/2)) —
+  make the `analyze` / `docs` stages provider-agnostic instead of being tied to Claude.
+  Claude stays the default, with OpenAI-compatible APIs and local models selectable via
+  configuration — no source changes required.
+- **Skill generation & publishing** ([#3](https://github.com/ymazhar/ai-docs-pipeline/issues/3)) —
+  an optional stage that packages `docs/` output into self-describing, versioned **skills**
+  (metadata header + index) that downstream agents, RAG pipelines, and LLM tools can import
+  directly, with local and remote publish targets.
+- **Windows support** ([#1](https://github.com/ymazhar/ai-docs-pipeline/issues/1)) —
+  first-class Windows setup and execution without WSL: OS-agnostic paths and subprocess
+  handling, plus a dedicated Windows setup guide covering the venv, `ffmpeg`, building
+  `whisper.cpp`, and model download.
+
 ## License
 
 [MIT](LICENSE)
